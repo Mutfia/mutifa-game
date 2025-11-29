@@ -1,44 +1,24 @@
 package mutfia.global.response;
 
 import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import mutfia.global.response.enums.Status;
 
 public class CustomJson {
 
-    public static String toJson(CustomResponse response) {
-        String type = response.type;
-        String status = response.status.toString();
-        String message = response.message;
-        Map<String, Object> data = response.data == null ? new HashMap<>() : response.data;
+    public static String toJson(CustomProtocolMessage customProtocolMessage) {
+        Map<String, Object> jsonMap = new LinkedHashMap<>();
+        jsonMap.put("type", customProtocolMessage.type);
+        jsonMap.put("status", customProtocolMessage.status.toString());
+        jsonMap.put("message", customProtocolMessage.message);
+        jsonMap.put("data", customProtocolMessage.data == null ? new HashMap<>() : customProtocolMessage.data);
 
-        StringBuilder sb = new StringBuilder();
-        sb.append("{");
-
-        sb.append("\"type\":\"").append(type).append("\",");
-        sb.append("\"status\":\"").append(status).append("\",");
-        sb.append("\"message\":\"").append(message).append("\",");
-
-        sb.append("\"data\":{");
-
-        int i = 0;
-        for (String key : data.keySet()) {
-            sb.append("\"").append(safe(key)).append("\":\"")
-                    .append(safe(String.valueOf(data.get(key))))
-                    .append("\"");
-
-            if (i < data.size() - 1) {
-                sb.append(",");
-            }
-            i++;
-        }
-        sb.append("}");
-
-        sb.append("}");
-        return sb.toString();
+        return mapToJson(jsonMap);
     }
 
-    public static CustomResponse toCustomResponse(String json) {
+    public static CustomProtocolMessage toCustomProtocolMessage(String json) {
         String type = extractValue(json, "type");
         Status status = Status.valueOf(extractValue(json, "status"));
         String message = extractValue(json, "message");
@@ -46,7 +26,76 @@ public class CustomJson {
         String dataBody = extractObject(json, "data");
         Map<String, Object> data = parseData(dataBody);
 
-        return new CustomResponse(type, status, message, data);
+        return new CustomProtocolMessage(type, status, message, data);
+    }
+
+    private static String mapToJson(Map<String, Object> map) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("{");
+
+        int i = 0;
+        for (String key : map.keySet()) {
+            sb.append("\"").append(safe(key)).append("\":");
+            sb.append(valueToJson(map.get(key)));
+
+            if (i < map.size() - 1) {
+                sb.append(",");
+            }
+            i++;
+        }
+
+        sb.append("}");
+        return sb.toString();
+    }
+
+    private static String valueToJson(Object value) {
+        if (value == null) {
+            return "null";
+        }
+
+        if (value instanceof String) {
+            return "\"" + safe(value.toString()) + "\"";
+        }
+
+        if (value instanceof Number) {
+            return value.toString();
+        }
+
+        if (value instanceof Boolean) {
+            return value.toString();
+        }
+
+        if (value instanceof Map) {
+            return mapToJson((Map<String, Object>) value);
+        }
+
+        if (value instanceof List) {
+            return listToJson((List<?>) value);
+        }
+
+        return "\"" + safe(value.toString()) + "\"";
+    }
+
+    private static String listToJson(List<?> list) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("[");
+
+        for (int i = 0; i < list.size(); i++) {
+            Object item = list.get(i);
+
+            if (item instanceof Map) {
+                sb.append(mapToJson((Map<String, Object>) item));
+            } else {
+                sb.append(valueToJson(item));
+            }
+
+            if (i < list.size() - 1) {
+                sb.append(",");
+            }
+        }
+
+        sb.append("]");
+        return sb.toString();
     }
 
     private static String extractValue(String json, String key) {

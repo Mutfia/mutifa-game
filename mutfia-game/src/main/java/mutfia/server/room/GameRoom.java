@@ -39,6 +39,10 @@ public class GameRoom {
         this.players.remove(player);
     }
 
+    public boolean isEmpty() {
+        return this.players.isEmpty();
+    }
+
     public Long getId() {
         return id;
     }
