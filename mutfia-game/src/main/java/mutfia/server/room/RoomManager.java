@@ -33,7 +33,7 @@ public class RoomManager {
 
     public static void removeRoom(GameRoom room) {
         rooms.remove(room);
-        System.out.println("[Server] 빈 방 삭제됨 → roomId=" + room.getId());
+        System.out.println("[Server] 빈 방 삭제됨 : roomId=" + room.getId());
     }
 
     public static List<Map<String, Object>> toRoomMapList() {

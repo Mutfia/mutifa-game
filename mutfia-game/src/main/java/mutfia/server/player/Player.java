@@ -105,7 +105,17 @@ public class Player implements Runnable {
     public void run() {
         try {
             String line;
-            while ((line = br.readLine()) != null) {
+
+            while (true) {
+                line = br.readLine();
+                if (line == null) {
+                    break;
+                }
+
+                if (line.trim().isEmpty()) {
+                    continue;
+                }
+
                 CustomProtocolMessage request = CustomJson.toCustomProtocolMessage(line);
                 handleRequest(request);
             }
