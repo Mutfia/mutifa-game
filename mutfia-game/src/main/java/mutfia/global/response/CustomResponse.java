@@ -32,6 +32,10 @@ public class CustomResponse {
         return new CustomResponse(type, Status.ERROR, Status.ERROR.getMessage(), null);
     }
 
+    public static CustomResponse error(String type, String message) {
+        return new CustomResponse(type, Status.ERROR, message, null);
+    }
+
     public static CustomResponse error(String type, Map<String, Object> data) {
         return new CustomResponse(type, Status.ERROR, Status.ERROR.getMessage(), data);
     }
