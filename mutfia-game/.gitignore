@@ -40,3 +40,6 @@ bin/
 
 ### Mac OS ###
 .DS_Store
+
+### 컴파일된 파일 무시 ###
+*.class

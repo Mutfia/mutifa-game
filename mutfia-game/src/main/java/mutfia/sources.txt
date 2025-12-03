@@ -1,0 +1,14 @@
+C:\HSU\NetworkProgramming\mutifa-game\mutfia-game\src\main\java\mutfia\client\ClientMain.java
+C:\HSU\NetworkProgramming\mutifa-game\mutfia-game\src\main\java\mutfia\client\GameRoomScreen.java
+C:\HSU\NetworkProgramming\mutifa-game\mutfia-game\src\main\java\mutfia\client\ServerConnection.java
+C:\HSU\NetworkProgramming\mutifa-game\mutfia-game\src\main\java\mutfia\client\StartScreen.java
+C:\HSU\NetworkProgramming\mutifa-game\mutfia-game\src\main\java\mutfia\client\TestClient.java
+C:\HSU\NetworkProgramming\mutifa-game\mutfia-game\src\main\java\mutfia\global\response\CustomJson.java
+C:\HSU\NetworkProgramming\mutifa-game\mutfia-game\src\main\java\mutfia\global\response\CustomProtocolMessage.java
+C:\HSU\NetworkProgramming\mutifa-game\mutfia-game\src\main\java\mutfia\global\response\enums\Status.java
+C:\HSU\NetworkProgramming\mutifa-game\mutfia-game\src\main\java\mutfia\server\ServerMain.java
+C:\HSU\NetworkProgramming\mutifa-game\mutfia-game\src\main\java\mutfia\server\exception\BaseException.java
+C:\HSU\NetworkProgramming\mutifa-game\mutfia-game\src\main\java\mutfia\server\player\Player.java
+C:\HSU\NetworkProgramming\mutifa-game\mutfia-game\src\main\java\mutfia\server\room\GameRoom.java
+C:\HSU\NetworkProgramming\mutifa-game\mutfia-game\src\main\java\mutfia\server\room\RoomManager.java
+C:\HSU\NetworkProgramming\mutifa-game\mutfia-game\src\main\java\mutfia\server\room\exception\RoomNotFoundException.java
