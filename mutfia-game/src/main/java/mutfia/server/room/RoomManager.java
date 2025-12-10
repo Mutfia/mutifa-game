@@ -6,7 +6,6 @@ import mutfia.server.player.Player;
 import mutfia.server.room.exception.RoomNotFoundException;
 
 public class RoomManager {
-
     private static List<GameRoom> rooms = new CopyOnWriteArrayList<>();
     private static long roomIdSequence = 1;
 

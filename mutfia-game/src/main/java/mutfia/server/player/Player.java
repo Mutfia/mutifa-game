@@ -60,7 +60,7 @@ public class Player implements Runnable {
                     GameRoom newRoom = RoomManager.create(roomName, this);
                     this.currentGameRoom = newRoom;
 
-                    System.out.println("[SERVER] 방 생성됨 : " + newRoom.getRoomName());
+                    System.out.println("[Server] 방 생성됨 : " + newRoom.getRoomName());
                     send(CustomProtocolMessage.success("CREATE_ROOM",
                             Map.of(
                                     "roomId", newRoom.getId(),

@@ -16,6 +16,34 @@ import mutfia.global.response.enums.Status;
 public class ServerConnection {
     private static final String SERVER_HOST = "127.0.0.1";
     private static final int SERVER_PORT = 9999;
+
+    private static Socket socket;
+    private static BufferedWriter bw;
+    private static BufferedReader br;
+
+    public static void connect(){
+        try{
+            socket = new Socket(SERVER_HOST, SERVER_PORT);
+            bw = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()));
+            br = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+
+            new Thread(ServerConnection::listen).start();
+        } catch (Exception e){
+            e.printStackTrace();
+        }
+    }
+
+    private static void listen(){
+        try{
+            String line;
+            while((line=br.readLine())!=null){
+                CustomProtocolMessage msg = CustomJson.toCustomProtocolMessage(line);
+
+            }
+        } catch (Exception e){
+
+        }
+    }
     
     /**
      * 서버에 연결하고 요청을 전송한 후 응답을 받습니다.
