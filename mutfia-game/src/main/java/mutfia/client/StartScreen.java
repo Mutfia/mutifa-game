@@ -100,7 +100,7 @@ public class StartScreen {
         ClientMessageHandler.register("SET_NAME", msg->{
             SwingUtilities.invokeLater(() -> {
                 mainFrame.dispose();
-                new GameRoomScreen(playerName);
+                new GameRoomListScreen(playerName);
             });
         });
 

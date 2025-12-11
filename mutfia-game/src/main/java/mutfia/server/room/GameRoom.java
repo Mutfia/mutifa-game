@@ -56,7 +56,13 @@ public class GameRoom {
     }
 
     public List<Player> getPlayers() {
-        return players;
+        return new ArrayList<>(players);
+    }
+
+    public List<String> getPlayerNames() {
+        return players.stream()
+                .map(Player::getName)
+                .toList();
     }
 
     public int getMaxPlayersCount() {

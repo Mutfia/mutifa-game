@@ -6,7 +6,7 @@ import java.util.List;
 import java.util.Map;
 import mutfia.client.handler.ClientMessageHandler;
 
-public class GameRoomScreen {
+public class GameRoomListScreen {
     private static final int WIDTH = 800;
     private static final int HEIGHT = 600;
 
@@ -17,7 +17,7 @@ public class GameRoomScreen {
 
     private String playerName;
 
-    public GameRoomScreen(String playerName) {
+    public GameRoomListScreen(String playerName) {
         this.playerName = playerName;
 
         registerHandlers();
@@ -25,7 +25,8 @@ public class GameRoomScreen {
         requestRoomList();
     }
 
-    private void registerHandlers(){
+    private void registerHandlers() {
+        // 방 목록 업데이트
         ClientMessageHandler.register("ROOM_LIST", msg -> {
             SwingUtilities.invokeLater(() -> {
                 rooms = (List<Map<String, Object>>) msg.data.get("rooms");
@@ -33,6 +34,7 @@ public class GameRoomScreen {
             });
         });
 
+        // 방 생성
         ClientMessageHandler.register("CREATE_ROOM", msg -> {
             SwingUtilities.invokeLater(() -> {
                 JOptionPane.showMessageDialog(mainFrame,
@@ -41,6 +43,7 @@ public class GameRoomScreen {
             });
         });
 
+        // 방 입장
         ClientMessageHandler.register("JOIN_ROOM", msg -> {
             SwingUtilities.invokeLater(() -> {
                 if (msg.status.name().equals("ERROR")) {
@@ -140,7 +143,9 @@ public class GameRoomScreen {
                 JOptionPane.PLAIN_MESSAGE
         );
 
-        if (roomName == null || roomName.trim().isEmpty()) return;
+        if (roomName == null || roomName.trim().isEmpty()) {
+            return;
+        }
 
         ServerConnection.send("CREATE_ROOM", Map.of("roomName", roomName.trim()));
     }

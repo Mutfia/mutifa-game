@@ -13,6 +13,8 @@ public class ServerMessageHandler {
         handlers.put("SET_NAME", Handlers::handleSetName);
         handlers.put("CREATE_ROOM", Handlers::handleCreateRoom);
         handlers.put("GET_ROOMS", Handlers::handleGetRooms);
+        handlers.put("JOIN_ROOM", Handlers::handleJoinRoom);
+        handlers.put("CHAT", Handlers::handleChat);
     }
 
     public static void dispatch(Player player, CustomProtocolMessage msg){
