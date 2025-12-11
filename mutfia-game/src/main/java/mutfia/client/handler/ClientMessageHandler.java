@@ -21,6 +21,8 @@ public class ClientMessageHandler {
 
         if(handler != null){
             handler.accept(customProtocolMessage);
+        } else {
+            System.out.println("[Error] 해당 타입에 대한 핸들러 없음 : " + customProtocolMessage.type);
         }
     }
 }

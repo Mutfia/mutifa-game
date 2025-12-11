@@ -4,6 +4,7 @@ import javax.swing.*;
 import java.awt.*;
 import java.util.List;
 import java.util.Map;
+import mutfia.client.handler.ClientMessageHandler;
 
 public class GameRoomScreen {
     private static final int WIDTH = 800;
@@ -19,8 +20,42 @@ public class GameRoomScreen {
     public GameRoomScreen(String playerName) {
         this.playerName = playerName;
 
+        registerHandlers();
         initialize();
-        refreshRoomList();
+        requestRoomList();
+    }
+
+    private void registerHandlers(){
+        ClientMessageHandler.register("ROOM_LIST", msg -> {
+            SwingUtilities.invokeLater(() -> {
+                rooms = (List<Map<String, Object>>) msg.data.get("rooms");
+                updateRoomList();
+            });
+        });
+
+        ClientMessageHandler.register("CREATE_ROOM", msg -> {
+            SwingUtilities.invokeLater(() -> {
+                JOptionPane.showMessageDialog(mainFrame,
+                        "방이 생성되었습니다: " + msg.data.get("roomName"));
+                requestRoomList();
+            });
+        });
+
+        ClientMessageHandler.register("JOIN_ROOM", msg -> {
+            SwingUtilities.invokeLater(() -> {
+                if (msg.status.name().equals("ERROR")) {
+                    JOptionPane.showMessageDialog(mainFrame,
+                            msg.message,
+                            "입장 실패",
+                            JOptionPane.ERROR_MESSAGE);
+                    return;
+                }
+
+                mainFrame.dispose();
+                GameScreenManager.open(msg.data);
+            });
+        });
+
     }
 
     private void initialize() {
@@ -31,14 +66,13 @@ public class GameRoomScreen {
         mainFrame.setResizable(false);
         mainFrame.setLayout(new BorderLayout());
 
-        // 상단 패널 (제목)
         JPanel titlePanel = new JPanel();
         titlePanel.setBorder(BorderFactory.createEmptyBorder(20, 0, 20, 0));
+
         JLabel titleLabel = new JLabel("게임 방 목록", JLabel.CENTER);
         titleLabel.setFont(new Font("맑은 고딕", Font.BOLD, 24));
         titlePanel.add(titleLabel);
 
-        // 중앙 패널 (방 목록)
         roomListModel = new DefaultListModel<>();
         roomList = new JList<>(roomListModel);
         roomList.setFont(new Font("맑은 고딕", Font.PLAIN, 14));
@@ -47,24 +81,20 @@ public class GameRoomScreen {
         JScrollPane scrollPane = new JScrollPane(roomList);
         scrollPane.setBorder(BorderFactory.createTitledBorder("방 목록"));
 
-        // 하단 패널 (버튼들)
         JPanel buttonPanel = new JPanel(new FlowLayout());
         buttonPanel.setBorder(BorderFactory.createEmptyBorder(20, 0, 20, 0));
 
         JButton createButton = new JButton("방 만들기");
-        createButton.setFont(new Font("맑은 고딕", Font.PLAIN, 14));
         createButton.setPreferredSize(new Dimension(120, 40));
         createButton.addActionListener(e -> createRoom());
 
         JButton joinButton = new JButton("방 입장");
-        joinButton.setFont(new Font("맑은 고딕", Font.PLAIN, 14));
         joinButton.setPreferredSize(new Dimension(120, 40));
         joinButton.addActionListener(e -> joinRoom());
 
         JButton refreshButton = new JButton("새로고침");
-        refreshButton.setFont(new Font("맑은 고딕", Font.PLAIN, 14));
         refreshButton.setPreferredSize(new Dimension(120, 40));
-        refreshButton.addActionListener(e -> refreshRoomList());
+        refreshButton.addActionListener(e -> requestRoomList());
 
         buttonPanel.add(createButton);
         buttonPanel.add(joinButton);
@@ -77,19 +107,8 @@ public class GameRoomScreen {
         mainFrame.setVisible(true);
     }
 
-    private void refreshRoomList() {
-        // ServerConnection을 사용하여 방 목록 조회
-        rooms = ServerConnection.getRooms();
-
-        if (rooms == null) {
-            JOptionPane.showMessageDialog(mainFrame,
-                    "방 목록을 불러오는데 실패했습니다.",
-                    "오류",
-                    JOptionPane.ERROR_MESSAGE);
-            return;
-        }
-
-        updateRoomList();
+    private void requestRoomList() {
+        ServerConnection.send("GET_ROOMS", Map.of());
     }
 
     private void updateRoomList() {
@@ -101,74 +120,51 @@ public class GameRoomScreen {
         }
 
         for (Map<String, Object> room : rooms) {
-            String roomName = (String) room.get("roomName");
-            Integer players = (Integer) room.get("players");
-            Integer maxPlayers = (Integer) room.get("maxPlayers");
-            Boolean isPlaying = (Boolean) room.get("isPlaying");
+            String name = (String) room.get("roomName");
+            int players = (int) room.get("players");
+            int maxPlayers = (int) room.get("maxPlayers");
+            boolean isPlaying = (boolean) room.get("isPlaying");
 
-            String displayText = String.format("%s [%d/%d] %s",
-                    roomName,
-                    players,
-                    maxPlayers,
-                    isPlaying ? "[게임 중]" : "[대기 중]"
-            );
+            String display = String.format("%s [%d/%d] %s",
+                    name, players, maxPlayers, isPlaying ? "[게임 중]" : "[대기 중]");
 
-            roomListModel.addElement(displayText);
+            roomListModel.addElement(display);
         }
     }
 
     private void createRoom() {
-        String roomName = JOptionPane.showInputDialog(mainFrame,
+        String roomName = JOptionPane.showInputDialog(
+                mainFrame,
                 "방 이름을 입력하세요:",
                 "방 만들기",
-                JOptionPane.PLAIN_MESSAGE);
+                JOptionPane.PLAIN_MESSAGE
+        );
 
-        if (roomName != null && !roomName.trim().isEmpty()) {
-            // ServerConnection을 사용하여 방 생성
-            Map<String, Object> roomInfo = ServerConnection.createRoom(roomName.trim());
+        if (roomName == null || roomName.trim().isEmpty()) return;
 
-            if (roomInfo != null) {
-                JOptionPane.showMessageDialog(mainFrame,
-                        "방이 생성되었습니다!\n방 이름: " + roomName,
-                        "방 생성 성공",
-                        JOptionPane.INFORMATION_MESSAGE);
-
-                refreshRoomList();
-            } else {
-                JOptionPane.showMessageDialog(mainFrame,
-                        "방 생성에 실패했습니다.",
-                        "방 생성 실패",
-                        JOptionPane.ERROR_MESSAGE);
-            }
-        }
+        ServerConnection.send("CREATE_ROOM", Map.of("roomName", roomName.trim()));
     }
 
     private void joinRoom() {
-        int selectedIndex = roomList.getSelectedIndex();
+        int idx = roomList.getSelectedIndex();
 
-        if (selectedIndex < 0 || rooms == null || selectedIndex >= rooms.size()) {
+        if (idx < 0 || rooms == null || idx >= rooms.size()) {
             JOptionPane.showMessageDialog(mainFrame,
-                    "입장할 방을 선택해주세요.",
-                    "알림",
-                    JOptionPane.WARNING_MESSAGE);
+                    "입장할 방을 선택해주세요.");
             return;
         }
 
-        Map<String, Object> selectedRoom = rooms.get(selectedIndex);
-        Boolean isPlaying = (Boolean) selectedRoom.get("isPlaying");
+        Map<String, Object> room = rooms.get(idx);
 
-        if (isPlaying != null && isPlaying) {
+        boolean isPlaying = (boolean) room.get("isPlaying");
+        if (isPlaying) {
             JOptionPane.showMessageDialog(mainFrame,
-                    "이미 게임이 진행 중인 방입니다.",
-                    "입장 불가",
-                    JOptionPane.WARNING_MESSAGE);
+                    "이미 게임 중인 방입니다!");
             return;
         }
 
-        // TODO: 방 입장 로직 구현
-        JOptionPane.showMessageDialog(mainFrame,
-                "방 입장 기능은 아직 구현되지 않았습니다.",
-                "알림",
-                JOptionPane.INFORMATION_MESSAGE);
+        long roomId = ((Number) room.get("roomId")).longValue();
+
+        ServerConnection.send("JOIN_ROOM", Map.of("roomId", roomId));
     }
 }
