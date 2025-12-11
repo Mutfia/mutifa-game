@@ -1,8 +1,11 @@
 package mutfia.server.room;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import mutfia.server.player.Player;
+import mutfia.server.room.enums.Phase;
 
 public class GameRoom {
     private static final int MAX_PLAYERS_COUNT = 5;
@@ -11,6 +14,9 @@ public class GameRoom {
     private boolean isPlaying;
     private List<Player> players;
     private int maxPlayersCount;
+    private Phase phase = Phase.DAY;
+
+    private Map<Player, String> roles = new HashMap<>();
 
     private GameRoom(Long id, String roomName, Player creator) {
         this.id = id;
@@ -67,5 +73,29 @@ public class GameRoom {
 
     public int getMaxPlayersCount() {
         return maxPlayersCount;
+    }
+
+    public void setPlaying(boolean playing) {
+        isPlaying = playing;
+    }
+
+    public void setRoles(Map<Player, String> roles) {
+        this.roles = roles;
+    }
+
+    public String getRole(Player player) {
+        return roles.get(player);
+    }
+
+    public Map<Player, String> getRoles() {
+        return roles;
+    }
+
+    public Phase getPhase() {
+        return phase;
+    }
+
+    public void setPhase(Phase phase) {
+        this.phase = phase;
     }
 }

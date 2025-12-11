@@ -8,6 +8,7 @@ public class GameScreenManager {
 
     public static void open(Map<String, Object> roomInfo) {
         current = new GameScreen(roomInfo);
+        current.registerHandlers();
     }
 
     public static GameScreen get() {
