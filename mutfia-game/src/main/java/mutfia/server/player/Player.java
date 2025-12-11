@@ -9,6 +9,7 @@ import java.net.Socket;
 import java.util.Map;
 import mutfia.global.response.CustomJson;
 import mutfia.global.response.CustomProtocolMessage;
+import mutfia.server.handler.ServerMessageHandler;
 import mutfia.server.room.GameRoom;
 import mutfia.server.room.RoomManager;
 
@@ -46,43 +47,20 @@ public class Player implements Runnable {
         }
     }
 
-    private void handleRequest(CustomProtocolMessage request) {
-        try {
-            switch (request.type) {
-                case "SET_NAME":
-                    String newName = (String) request.data.get("name");
-                    this.name = newName;
-                    send(CustomProtocolMessage.success("SET_NAME",
-                            Map.of("name", this.name)));
-                    break;
-                case "CREATE_ROOM":
-                    String roomName = (String) request.data.get("roomName");
-                    GameRoom newRoom = RoomManager.create(roomName, this);
-                    this.currentGameRoom = newRoom;
+    public void setName(String name) {
+        this.name = name;
+    }
 
-                    System.out.println("[Server] 방 생성됨 : " + newRoom.getRoomName());
-                    send(CustomProtocolMessage.success("CREATE_ROOM",
-                            Map.of(
-                                    "roomId", newRoom.getId(),
-                                    "roomName", newRoom.getRoomName(),
-                                    "players", newRoom.getPlayers().size()
-                            )
-                    ));
+    public String getName() {
+        return name;
+    }
 
-                    break;
+    public void setCurrentGameRoom(GameRoom currentGameRoom) {
+        this.currentGameRoom = currentGameRoom;
+    }
 
-                case "GET_ROOMS": {
-                    send(CustomProtocolMessage.success(
-                            "ROOM_LIST",
-                            Map.of("rooms", RoomManager.toRoomMapList())
-                    ));
-                    break;
-                }
-
-            }
-        } catch (Exception e) {
-            send(CustomProtocolMessage.error("[ERROR]", Map.of("message", e.getMessage())));
-        }
+    public GameRoom getCurrentGameRoom() {
+        return currentGameRoom;
     }
 
     private void cleanUp() {
@@ -105,19 +83,13 @@ public class Player implements Runnable {
     public void run() {
         try {
             String line;
+            while ((line = br.readLine()) != null) {
 
-            while (true) {
-                line = br.readLine();
-                if (line == null) {
-                    break;
-                }
-
-                if (line.trim().isEmpty()) {
-                    continue;
-                }
+                if (line.trim().isEmpty()) continue;
 
                 CustomProtocolMessage request = CustomJson.toCustomProtocolMessage(line);
-                handleRequest(request);
+
+                ServerMessageHandler.dispatch(this, request);
             }
         } catch (IOException e) {
             System.out.println("[Player] 연결 종료");
