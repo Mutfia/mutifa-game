@@ -233,4 +233,34 @@ public class GameRoom {
     public void resetVotes() {
         votes.clear();
     }
+
+    // 승리 조건 체크
+    // 반환값: "MAFIA" (마피아 승리), "CITIZEN" (시민 승리), null (게임 계속)
+    public String checkWinCondition() {
+        List<Player> alivePlayers = getAlivePlayers();
+        int mafiaCount = 0;
+        int citizenCount = 0;
+
+        for (Player player : alivePlayers) {
+            Role role = roles.get(player);
+            if (role == Role.MAFIA) {
+                mafiaCount++;
+            } else {
+                citizenCount++; // DOCTOR, POLICE, CITIZEN 모두 시민 팀
+            }
+        }
+
+        // 마피아 승리: 마피아 수 >= 시민 수
+        if (mafiaCount >= citizenCount && mafiaCount > 0) {
+            return "MAFIA";
+        }
+
+        // 시민 승리: 마피아가 모두 제거됨
+        if (mafiaCount == 0) {
+            return "CITIZEN";
+        }
+
+        // 게임 계속
+        return null;
+    }
 }

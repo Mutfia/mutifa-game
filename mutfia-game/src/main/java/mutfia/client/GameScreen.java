@@ -265,6 +265,41 @@ public class GameScreen {
                 }
             });
         });
+
+        ClientMessageHandler.register("GAME_END", msg -> {
+            SwingUtilities.invokeLater(() -> {
+                String winner = (String) msg.data.get("winner");
+                Boolean isWinner = (Boolean) msg.data.get("isWinner");
+                String myRole = (String) msg.data.get("myRole");
+
+                String winnerTeam = "MAFIA".equals(winner) ? "마피아" : "시민";
+                String message;
+                String title;
+
+                if (isWinner != null && isWinner) {
+                    title = "승리!";
+                    message = String.format("축하합니다! %s 팀이 승리했습니다!\n당신의 역할: %s", winnerTeam, myRole);
+                    appendLog("🎉 " + winnerTeam + " 팀 승리! 당신의 역할: " + myRole);
+                } else {
+                    title = "패배";
+                    message = String.format("%s 팀이 승리했습니다.\n당신의 역할: %s", winnerTeam, myRole);
+                    appendLog("💀 " + winnerTeam + " 팀 승리. 당신의 역할: " + myRole);
+                }
+
+                // 게임 종료 다이얼로그 표시
+                JOptionPane.showMessageDialog(
+                        frame,
+                        message,
+                        title,
+                        isWinner != null && isWinner ? JOptionPane.INFORMATION_MESSAGE : JOptionPane.WARNING_MESSAGE
+                );
+
+                // 게임 종료 후 버튼 비활성화
+                if (abilityButton != null) abilityButton.setEnabled(false);
+                if (voteButton != null) voteButton.setEnabled(false);
+                if (chatInput != null) chatInput.setEnabled(false);
+            });
+        });
     }
 
     private void promptAbilityTarget() {

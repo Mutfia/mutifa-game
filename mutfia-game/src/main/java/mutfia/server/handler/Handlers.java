@@ -229,6 +229,9 @@ public class Handlers {
                                 Map.of("name", mafiaTarget.getName())
                         )
                 );
+                
+                // 승리 조건 체크
+                checkWinCondition(room);
             } else {
                 ServerBroadcaster.broadcastToRoom(
                         room,
@@ -288,6 +291,9 @@ public class Handlers {
                                    "message", mostVoted.getName() + "님이 처형당했습니다.")
                     )
             );
+            
+            // 승리 조건 체크
+            checkWinCondition(room);
         } else {
             // 아무도 처형당하지 않음
             ServerBroadcaster.broadcastToRoom(
@@ -298,6 +304,36 @@ public class Handlers {
                                    "message", "아무도 처형당하지 않았습니다.")
                     )
             );
+        }
+    }
+
+    // 승리 조건 체크 및 게임 종료 처리
+    private static void checkWinCondition(GameRoom room) {
+        String winner = room.checkWinCondition();
+        if (winner == null) {
+            return; // 게임 계속
+        }
+
+        // 게임 종료
+        room.setPlaying(false);
+
+        // 각 플레이어의 역할에 따라 승리/패배 결정
+        for (Player player : room.getPlayers()) {
+            Role role = room.getRole(player);
+            boolean isWinner = false;
+
+            if ("MAFIA".equals(winner)) {
+                isWinner = (role == Role.MAFIA);
+            } else if ("CITIZEN".equals(winner)) {
+                isWinner = (role != Role.MAFIA); // DOCTOR, POLICE, CITIZEN 모두 시민 팀
+            }
+
+            Map<String, Object> resultData = new HashMap<>();
+            resultData.put("winner", winner);
+            resultData.put("isWinner", isWinner);
+            resultData.put("myRole", role.name());
+
+            player.send(CustomProtocolMessage.success("GAME_END", resultData));
         }
     }
 
