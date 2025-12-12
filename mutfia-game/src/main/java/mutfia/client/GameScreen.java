@@ -12,6 +12,7 @@ public class GameScreen {
     private JTextArea logArea;
     private JTextField chatInput;
     private JLabel stateLabel;
+    private JLabel timerLabel;
     private JButton abilityButton;
 
     private boolean started = false;
@@ -33,15 +34,21 @@ public class GameScreen {
         frame.getContentPane().setBackground(new Color(30, 30, 50));
 
         // 상태 패널
-        JPanel statusPanel = new JPanel();
+        JPanel statusPanel = new JPanel(new BorderLayout());
         statusPanel.setPreferredSize(new Dimension(0, 80));
         statusPanel.setBackground(new Color(45, 45, 70));
 
-        stateLabel = new JLabel("대기 중...");
+        stateLabel = new JLabel("대기 중...", JLabel.CENTER);
         stateLabel.setForeground(Color.WHITE);
         stateLabel.setFont(new Font("맑은 고딕", Font.BOLD, 18));
 
-        statusPanel.add(stateLabel);
+        timerLabel = new JLabel("", JLabel.RIGHT);
+        timerLabel.setForeground(Color.WHITE);
+        timerLabel.setFont(new Font("맑은 고딕", Font.BOLD, 24));
+        timerLabel.setBorder(BorderFactory.createEmptyBorder(0, 0, 0, 30)); // 오른쪽 여백 30픽셀
+
+        statusPanel.add(stateLabel, BorderLayout.CENTER);
+        statusPanel.add(timerLabel, BorderLayout.EAST);
         frame.add(statusPanel, BorderLayout.NORTH);
 
         // 채팅 로그
@@ -145,6 +152,20 @@ public class GameScreen {
                     appendLog("⏱ 단계 전환: " + phase);
                 }
                 updateAbilityAvailability();
+            });
+        });
+
+        // 타이머 업데이트
+        ClientMessageHandler.register("TIMER_UPDATE", msg -> {
+            SwingUtilities.invokeLater(() -> {
+                int remainingSeconds = ((Number) msg.data.get("remainingSeconds")).intValue();
+                // String phase = (String) msg.data.get("phase");
+                
+                int minutes = remainingSeconds / 60;
+                int seconds = remainingSeconds % 60;
+                String timeText = String.format("%02d:%02d", minutes, seconds);
+                
+                timerLabel.setText(timeText);
             });
         });
 

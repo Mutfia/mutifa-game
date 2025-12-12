@@ -18,6 +18,8 @@ import mutfia.server.room.enums.Phase;
 
 public class Handlers {
 
+    private static int TIMER = 60000; // 1분
+
     // 플레이어 이름 설정
     public static void handleSetName(Player player, CustomProtocolMessage msg) {
         String newName = (String) msg.data.get("name");
@@ -169,8 +171,8 @@ public class Handlers {
                 CustomProtocolMessage.success("GAME_START", Map.of())
         );
 
-        // 첫 번째 낮 시작
-        startDay(room);
+        // 첫 번째 밤 시작
+        startNight(room);
     }
 
     private static void startDay(GameRoom room) {
@@ -183,9 +185,21 @@ public class Handlers {
                 )
         );
 
+        // 타이머 스레드 시작
         new Thread(() -> {
+            int remainingSeconds = TIMER / 1000;
             try {
-                Thread.sleep(60000); // 1분 후 밤 시작
+                while (remainingSeconds > 0) {
+                    Thread.sleep(1000); // 1초 대기
+                    remainingSeconds--;
+                    
+                    ServerBroadcaster.broadcastToRoom(
+                            room,
+                            CustomProtocolMessage.success("TIMER_UPDATE",
+                                    Map.of("remainingSeconds", remainingSeconds, "phase", "DAY")
+                            )
+                    );
+                }
                 startNight(room);
             } catch (Exception ignored) {}
         }).start();
@@ -201,9 +215,21 @@ public class Handlers {
                 )
         );
 
+        // 타이머 스레드 시작
         new Thread(() -> {
+            int remainingSeconds = TIMER / 1000;
             try {
-                Thread.sleep(60000); // 1분 후 낮 시작
+                while (remainingSeconds > 0) {
+                    Thread.sleep(1000); // 1초 대기
+                    remainingSeconds--;
+                    
+                    ServerBroadcaster.broadcastToRoom(
+                            room,
+                            CustomProtocolMessage.success("TIMER_UPDATE",
+                                    Map.of("remainingSeconds", remainingSeconds, "phase", "NIGHT")
+                            )
+                    );
+                }
                 startDay(room);
             } catch (Exception ignored) {}
         }).start();
