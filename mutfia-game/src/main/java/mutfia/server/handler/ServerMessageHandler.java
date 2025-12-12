@@ -17,6 +17,7 @@ public class ServerMessageHandler {
         handlers.put("CHAT", Handlers::handleChat);
         handlers.put("USE_ABILITY", Handlers::handleUseAbility);
         handlers.put("GET_PLAYERS", Handlers::handleGetPlayers);
+        handlers.put("VOTE", Handlers::handleVote);
     }
 
     public static void dispatch(Player player, CustomProtocolMessage msg){

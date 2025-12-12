@@ -22,6 +22,7 @@ C:\HSU\NetworkProgramming\mutifa-game\mutfia-game\src\main\java\mutfia\server\ro
 C:\HSU\NetworkProgramming\mutifa-game\mutfia-game\src\main\java\mutfia\server\role\RoleAction.java
 C:\HSU\NetworkProgramming\mutifa-game\mutfia-game\src\main\java\mutfia\server\role\RoleActionFactory.java
 C:\HSU\NetworkProgramming\mutifa-game\mutfia-game\src\main\java\mutfia\server\role\RoleActionResult.java
+C:\HSU\NetworkProgramming\mutifa-game\mutfia-game\src\main\java\mutfia\server\role\VoteAction.java
 C:\HSU\NetworkProgramming\mutifa-game\mutfia-game\src\main\java\mutfia\server\room\GameRoom.java
 C:\HSU\NetworkProgramming\mutifa-game\mutfia-game\src\main\java\mutfia\server\room\RoomManager.java
 C:\HSU\NetworkProgramming\mutifa-game\mutfia-game\src\main\java\mutfia\server\room\enums\Phase.java

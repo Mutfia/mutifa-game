@@ -24,6 +24,9 @@ public class GameRoom {
     // 밤 능력 사용 관련
     private Map<Player, Boolean> nightAbilityUsed = new HashMap<>(); // 밤에 능력을 사용했는지
     private Map<Player, Player> nightTargets = new HashMap<>(); // 밤에 선택한 대상 저장
+    
+    // 투표 관련
+    private Map<Player, Player> votes = new HashMap<>(); // 누가 누구에게 투표했는지
 
     private GameRoom(Long id, String roomName, Player creator) {
         this.id = id;
@@ -170,5 +173,64 @@ public class GameRoom {
     public void resetNightActions() {
         nightAbilityUsed.clear();
         nightTargets.clear();
+    }
+
+    // 투표 관련 메서드
+    public void setVote(Player voter, Player target) {
+        votes.put(voter, target);
+    }
+
+    public Player getVote(Player voter) {
+        return votes.get(voter);
+    }
+
+    public boolean hasVoted(Player voter) {
+        return votes.containsKey(voter);
+    }
+
+    public int getVoteCount(Player target) {
+        return (int) votes.values().stream()
+                .filter(target::equals)
+                .count();
+    }
+
+    // 과반수 기준 계산 (생존 플레이어 기준)
+    public int getMajorityThreshold() {
+        int aliveCount = getAlivePlayers().size();
+        return (aliveCount + 1) / 2;
+    }
+
+    // 가장 많이 투표받은 플레이어 찾기 (과반수 이상일 때만)
+    public Player getMostVotedPlayer() {
+        if (votes.isEmpty()) {
+            return null;
+        }
+
+        Map<Player, Integer> voteCounts = new HashMap<>();
+        for (Player target : votes.values()) {
+            voteCounts.put(target, voteCounts.getOrDefault(target, 0) + 1);
+        }
+
+        int maxVotes = voteCounts.values().stream()
+                .mapToInt(Integer::intValue)
+                .max()
+                .orElse(0);
+
+        int majority = getMajorityThreshold();
+        if (maxVotes < majority) {
+            return null; // 과반수 미달
+        }
+
+        // 최다득표자 반환
+        return voteCounts.entrySet().stream()
+                .filter(entry -> entry.getValue() == maxVotes)
+                .map(Map.Entry::getKey)
+                .findFirst()
+                .orElse(null);
+    }
+
+    // 투표 초기화 (낮 시작 시)
+    public void resetVotes() {
+        votes.clear();
     }
 }

@@ -12,13 +12,16 @@ import mutfia.server.player.enums.Role;
 import mutfia.server.role.RoleAction;
 import mutfia.server.role.RoleActionFactory;
 import mutfia.server.role.RoleActionResult;
+import mutfia.server.role.VoteAction;
 import mutfia.server.room.GameRoom;
 import mutfia.server.room.RoomManager;
 import mutfia.server.room.enums.Phase;
 
 public class Handlers {
 
-    private static int TIMER = 60000; // 1분
+    private static int DAY_TIMER = 60000; // 낮 시간 (1분)
+    private static int NIGHT_TIMER = 60000; // 밤 시간 (1분)
+    private static int VOTING_TIMER = 20000; // 투표 시간 (20초)
 
     // 플레이어 이름 설정
     public static void handleSetName(Player player, CustomProtocolMessage msg) {
@@ -181,6 +184,7 @@ public class Handlers {
         
         room.setPhase(Phase.DAY);
         room.resetNightActions(); // 다음 밤을 위해 초기화
+        room.resetVotes(); // 낮 시작 시 투표 초기화
 
         ServerBroadcaster.broadcastToRoom(
                 room,
@@ -191,7 +195,7 @@ public class Handlers {
 
         // 타이머 스레드 시작
         new Thread(() -> {
-            int remainingSeconds = TIMER / 1000;
+            int remainingSeconds = DAY_TIMER / 1000;
             try {
                 while (remainingSeconds > 0) {
                     Thread.sleep(1000); // 1초 대기
@@ -204,7 +208,7 @@ public class Handlers {
                             )
                     );
                 }
-                startNight(room);
+                startVoting(room); // 낮 종료 시 투표 시간 시작
             } catch (Exception ignored) {}
         }).start();
     }
@@ -237,6 +241,66 @@ public class Handlers {
         }
     }
 
+    // 투표 시간
+    private static void startVoting(GameRoom room) {
+        room.setPhase(Phase.VOTING);
+        
+        ServerBroadcaster.broadcastToRoom(
+                room,
+                CustomProtocolMessage.success("PHASE_CHANGE",
+                        Map.of("phase", "VOTING")
+                )
+        );
+
+        // 투표 시간 타이머 스레드 시작
+        new Thread(() -> {
+            int remainingSeconds = VOTING_TIMER / 1000;
+            try {
+                while (remainingSeconds > 0) {
+                    Thread.sleep(1000); // 1초 대기
+                    remainingSeconds--;
+                    
+                    ServerBroadcaster.broadcastToRoom(
+                            room,
+                            CustomProtocolMessage.success("TIMER_UPDATE",
+                                    Map.of("remainingSeconds", remainingSeconds, "phase", "VOTING")
+                            )
+                    );
+                }
+                processVoteResults(room); // 투표 시간 종료 시 결과 처리
+                startNight(room); // 결과 후 밤으로 전환
+            } catch (Exception ignored) {}
+        }).start();
+    }
+
+    // 투표 결과 처리
+    private static void processVoteResults(GameRoom room) {
+        Player mostVoted = room.getMostVotedPlayer();
+        
+        if (mostVoted != null && room.isAlive(mostVoted)) {
+            // 과반수 이상 받은 플레이어 처형
+            room.markDead(mostVoted);
+            ServerBroadcaster.broadcastToRoom(
+                    room,
+                    CustomProtocolMessage.success(
+                            "VOTE_RESULT",
+                            Map.of("executed", true, "name", mostVoted.getName(), 
+                                   "message", mostVoted.getName() + "님이 처형당했습니다.")
+                    )
+            );
+        } else {
+            // 아무도 처형당하지 않음
+            ServerBroadcaster.broadcastToRoom(
+                    room,
+                    CustomProtocolMessage.success(
+                            "VOTE_RESULT",
+                            Map.of("executed", false, "name", "", 
+                                   "message", "아무도 처형당하지 않았습니다.")
+                    )
+            );
+        }
+    }
+
     private static void startNight(GameRoom room) {
         room.setPhase(Phase.NIGHT);
         room.resetNightActions(); // 밤 시작 시 능력 사용 상태 초기화
@@ -250,7 +314,7 @@ public class Handlers {
 
         // 타이머 스레드 시작
         new Thread(() -> {
-            int remainingSeconds = TIMER / 1000;
+            int remainingSeconds = NIGHT_TIMER / 1000;
             try {
                 while (remainingSeconds > 0) {
                     Thread.sleep(1000); // 1초 대기
@@ -373,5 +437,83 @@ public class Handlers {
                 "PLAYERS_LIST",
                 Map.of("players", playersInfo)
         ));
+    }
+
+    // 투표 처리
+    public static void handleVote(Player player, CustomProtocolMessage msg) {
+        GameRoom room = player.getCurrentGameRoom();
+        if (room == null) {
+            player.send(CustomProtocolMessage.error(
+                    "VOTE",
+                    Map.of("message", "방 안에 있어야 투표할 수 있습니다.")
+            ));
+            return;
+        }
+
+        if (!room.isAlive(player)) {
+            player.send(CustomProtocolMessage.error(
+                    "VOTE",
+                    Map.of("message", "사망한 플레이어는 투표할 수 없습니다.")
+            ));
+            return;
+        }
+
+        // 투표 시간이 아니면 투표 불가
+        if (room.getPhase() != Phase.VOTING) {
+            player.send(CustomProtocolMessage.error(
+                    "VOTE",
+                    Map.of("message", "투표 시간이 아닙니다.")
+            ));
+            return;
+        }
+
+        // 이미 투표했는지 확인
+        if (room.hasVoted(player)) {
+            player.send(CustomProtocolMessage.error(
+                    "VOTE",
+                    Map.of("message", "이미 투표했습니다.")
+            ));
+            return;
+        }
+
+        String targetName = (String) msg.data.get("target");
+        if (targetName == null || targetName.isBlank()) {
+            player.send(CustomProtocolMessage.error(
+                    "VOTE",
+                    Map.of("message", "대상을 지정해야 합니다.")
+            ));
+            return;
+        }
+
+        Player target = room.findPlayerByName(targetName).orElse(null);
+        if (target == null) {
+            player.send(CustomProtocolMessage.error(
+                    "VOTE",
+                    Map.of("message", "대상을 찾을 수 없습니다.")
+            ));
+            return;
+        }
+
+        if (!room.isAlive(target)) {
+            player.send(CustomProtocolMessage.error(
+                    "VOTE",
+                    Map.of("message", targetName + "은(는) 이미 사망했습니다.")
+            ));
+            return;
+        }
+
+        // VoteAction 사용
+        VoteAction voteAction = new VoteAction();
+        RoleActionResult result = voteAction.use(player, target, room);
+
+        if (!result.success()) {
+            player.send(CustomProtocolMessage.error(
+                    "VOTE",
+                    Map.of("message", result.message())
+            ));
+            return;
+        }
+
+        player.send(CustomProtocolMessage.success("VOTE", Map.of("message", result.message())));
     }
 }

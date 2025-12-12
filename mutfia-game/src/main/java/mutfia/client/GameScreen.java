@@ -17,6 +17,7 @@ public class GameScreen {
     private JLabel stateLabel;
     private JLabel timerLabel;
     private JButton abilityButton;
+    private JButton voteButton;
 
     private boolean started = false;
     private Map<Player, String> roles = new HashMap<>();
@@ -25,6 +26,7 @@ public class GameScreen {
     private List<Map<String, Object>> playersInfo = new ArrayList<>();
     private Consumer<String> pendingPlayerSelectionCallback; // 플레이어 선택 대기 중인 callback
     private boolean nightAbilityUsed = false; // 밤에 능력을 사용했는지
+    private boolean voted = false; // 투표했는지
 
     public GameScreen(Map<String, Object> roomInfo) {
         registerHandlers();
@@ -71,6 +73,7 @@ public class GameScreen {
         JPanel actionPanel = new JPanel(new BorderLayout(10, 0));
         actionPanel.setBackground(new Color(30, 30, 50));
 
+        // 능력 버튼
         abilityButton = new JButton("능력 대기");
         abilityButton.setEnabled(false);
         abilityButton.setFocusable(false);
@@ -78,7 +81,21 @@ public class GameScreen {
         abilityButton.setForeground(Color.WHITE);
         abilityButton.setFont(new Font("맑은 고딕", Font.BOLD, 14));
         abilityButton.addActionListener(e -> promptAbilityTarget());
-        actionPanel.add(abilityButton, BorderLayout.WEST);
+        
+        // 투표 버튼
+        voteButton = new JButton("투표");
+        voteButton.setEnabled(false);
+        voteButton.setFocusable(false);
+        voteButton.setBackground(new Color(70, 70, 110));
+        voteButton.setForeground(Color.WHITE);
+        voteButton.setFont(new Font("맑은 고딕", Font.BOLD, 14));
+        voteButton.addActionListener(e -> promptVoteTarget());
+        
+        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
+        buttonPanel.setBackground(new Color(30, 30, 50));
+        buttonPanel.add(abilityButton);
+        buttonPanel.add(voteButton);
+        actionPanel.add(buttonPanel, BorderLayout.WEST);
 
         // 채팅 입력창
         chatInput = new JTextField();
@@ -151,15 +168,22 @@ public class GameScreen {
                     stateLabel.setText("현재 상태: 낮");
                     appendLog("🌞 낮이 시작되었습니다.");
                     nightAbilityUsed = false; // 초기화
+                    voted = false; // 초기화
+                } else if ("VOTING".equalsIgnoreCase(phase)) {
+                    stateLabel.setText("현재 상태: 투표");
+                    appendLog("⚖️ 투표 시간이 시작되었습니다.");
+                    voted = false; // 투표 초기화
                 } else if ("NIGHT".equalsIgnoreCase(phase)) {
                     stateLabel.setText("현재 상태: 밤");
                     appendLog("🌙 밤이 시작되었습니다.");
                     nightAbilityUsed = false; // 초기화
+                    voted = false; // 초기화
                 } else {
                     stateLabel.setText("현재 상태: " + phase);
                     appendLog("⏱ 단계 전환: " + phase);
                 }
                 updateAbilityAvailability();
+                updateVoteAvailability();
             });
         });
 
@@ -190,6 +214,15 @@ public class GameScreen {
             });
         });
 
+        ClientMessageHandler.register("VOTE_RESULT", msg -> {
+            SwingUtilities.invokeLater(() -> {
+                String message = (String) msg.data.get("message");
+                if (message != null) {
+                    appendLog("⚖️ " + message);
+                }
+            });
+        });
+
         ClientMessageHandler.register("USE_ABILITY", msg -> {
             SwingUtilities.invokeLater(() -> {
                 String info = msg.data != null ? (String) msg.data.get("message") : null;
@@ -200,6 +233,20 @@ public class GameScreen {
                 if (msg.status.name().equals("OK")) {
                     nightAbilityUsed = true;
                     updateAbilityAvailability();
+                }
+            });
+        });
+
+        ClientMessageHandler.register("VOTE", msg -> {
+            SwingUtilities.invokeLater(() -> {
+                String info = msg.data != null ? (String) msg.data.get("message") : null;
+                if (info != null) {
+                    appendLog("⚖️ " + info);
+                }
+                // 투표 성공 시 버튼 비활성화
+                if (msg.status.name().equals("OK")) {
+                    voted = true;
+                    updateVoteAvailability();
                 }
             });
         });
@@ -234,6 +281,21 @@ public class GameScreen {
         pendingPlayerSelectionCallback = (selectedPlayer) -> {
             if (selectedPlayer != null && !selectedPlayer.isEmpty()) {
                 ServerConnection.send("USE_ABILITY", Map.of("target", selectedPlayer));
+            }
+        };
+        ServerConnection.send("GET_PLAYERS", Map.of());
+    }
+
+    private void promptVoteTarget() {
+        if (!"VOTING".equalsIgnoreCase(state)) {
+            appendLog("⚠️ 투표는 투표 시간에만 할 수 있습니다.");
+            return;
+        }
+
+        // 플레이어 목록 요청 (전체 플레이어 + 생존 상태)
+        pendingPlayerSelectionCallback = (selectedPlayer) -> {
+            if (selectedPlayer != null && !selectedPlayer.isEmpty()) {
+                ServerConnection.send("VOTE", Map.of("target", selectedPlayer));
             }
         };
         ServerConnection.send("GET_PLAYERS", Map.of());
@@ -343,6 +405,19 @@ public class GameScreen {
             } else {
                 abilityButton.setText(canUse ? ("능력 사용 (" + myRole + ")") : ("능력 대기 (" + myRole + ")"));
             }
+        }
+    }
+
+    private void updateVoteAvailability() {
+        if (voteButton == null) return;
+
+        boolean canVote = "VOTING".equalsIgnoreCase(state) && !voted;
+
+        voteButton.setEnabled(canVote);
+        if (voted) {
+            voteButton.setText("투표 완료");
+        } else {
+            voteButton.setText("투표");
         }
     }
 }
