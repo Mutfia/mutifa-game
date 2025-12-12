@@ -176,7 +176,11 @@ public class Handlers {
     }
 
     private static void startDay(GameRoom room) {
+        // 밤 종료 시 의사/마피아 선택 결과 처리
+        processNightResults(room);
+        
         room.setPhase(Phase.DAY);
+        room.resetNightActions(); // 다음 밤을 위해 초기화
 
         ServerBroadcaster.broadcastToRoom(
                 room,
@@ -205,8 +209,37 @@ public class Handlers {
         }).start();
     }
 
+    // 밤 종료 시 의사/마피아 선택 결과 처리
+    private static void processNightResults(GameRoom room) {
+        Player mafiaTarget = room.getMafiaTarget();
+        Player doctorTarget = room.getDoctorTarget();
+
+        // 마피아가 대상을 선택했고, 의사가 그 대상을 치료하지 않았다면 사망
+        if (mafiaTarget != null && room.isAlive(mafiaTarget)) {
+            if (doctorTarget == null || !doctorTarget.equals(mafiaTarget)) {
+                room.markDead(mafiaTarget);
+                ServerBroadcaster.broadcastToRoom(
+                        room,
+                        CustomProtocolMessage.success(
+                                "PLAYER_KILLED",
+                                Map.of("name", mafiaTarget.getName())
+                        )
+                );
+            } else {
+                ServerBroadcaster.broadcastToRoom(
+                        room,
+                        CustomProtocolMessage.success(
+                                "PLAYER_SAVED",
+                                Map.of("name", mafiaTarget.getName())
+                        )
+                );
+            }
+        }
+    }
+
     private static void startNight(GameRoom room) {
         room.setPhase(Phase.NIGHT);
+        room.resetNightActions(); // 밤 시작 시 능력 사용 상태 초기화
 
         ServerBroadcaster.broadcastToRoom(
                 room,
@@ -262,6 +295,15 @@ public class Handlers {
             return;
         }
 
+        // 밤에 이미 능력을 사용했는지 체크
+        if (room.hasUsedNightAbility(player)) {
+            player.send(CustomProtocolMessage.error(
+                    "USE_ABILITY",
+                    Map.of("message", "밤에 능력은 한 번만 사용할 수 있습니다.")
+            ));
+            return;
+        }
+
         String targetName = (String) msg.data.get("target");
         if (targetName == null || targetName.isBlank()) {
             player.send(CustomProtocolMessage.error(
@@ -280,21 +322,31 @@ public class Handlers {
             return;
         }
 
+        if (!room.isAlive(target)) {
+            player.send(CustomProtocolMessage.error(
+                    "USE_ABILITY",
+                    Map.of("message", targetName + "은(는) 이미 사망했습니다.")
+            ));
+            return;
+        }
+
         Role role = room.getRole(player);
         RoleAction action = RoleActionFactory.from(role);
         RoleActionResult result = action.use(player, target, room);
 
-        if (result.success()) {
-            player.send(CustomProtocolMessage.success(
-                    "USE_ABILITY",
-                    Map.of("message", result.message())
-            ));
-        } else {
+        if (!result.success()) {
             player.send(CustomProtocolMessage.error(
                     "USE_ABILITY",
                     Map.of("message", result.message())
             ));
+            return;
         }
+
+        // 능력 사용 성공 시 저장
+        room.setNightAbilityUsed(player, true);
+        room.setNightTarget(player, target);
+
+        player.send(CustomProtocolMessage.success("USE_ABILITY", Map.of("message", result.message())));
     }
 
     // 플레이어 목록 조회 (전체 플레이어 + 생존 상태)

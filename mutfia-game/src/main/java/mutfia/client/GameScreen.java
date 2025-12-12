@@ -24,6 +24,7 @@ public class GameScreen {
     private String myRole;
     private List<Map<String, Object>> playersInfo = new ArrayList<>();
     private Consumer<String> pendingPlayerSelectionCallback; // 플레이어 선택 대기 중인 callback
+    private boolean nightAbilityUsed = false; // 밤에 능력을 사용했는지
 
     public GameScreen(Map<String, Object> roomInfo) {
         registerHandlers();
@@ -149,9 +150,11 @@ public class GameScreen {
                 if ("DAY".equalsIgnoreCase(phase)) {
                     stateLabel.setText("현재 상태: 낮");
                     appendLog("🌞 낮이 시작되었습니다.");
+                    nightAbilityUsed = false; // 초기화
                 } else if ("NIGHT".equalsIgnoreCase(phase)) {
                     stateLabel.setText("현재 상태: 밤");
                     appendLog("🌙 밤이 시작되었습니다.");
+                    nightAbilityUsed = false; // 초기화
                 } else {
                     stateLabel.setText("현재 상태: " + phase);
                     appendLog("⏱ 단계 전환: " + phase);
@@ -180,11 +183,23 @@ public class GameScreen {
             });
         });
 
+        ClientMessageHandler.register("PLAYER_SAVED", msg -> {
+            SwingUtilities.invokeLater(() -> {
+                String name = (String) msg.data.get("name");
+                appendLog("💊 " + name + " 님이 치료되어 생존했습니다.");
+            });
+        });
+
         ClientMessageHandler.register("USE_ABILITY", msg -> {
             SwingUtilities.invokeLater(() -> {
                 String info = msg.data != null ? (String) msg.data.get("message") : null;
                 if (info != null) {
                     appendLog("🛠 " + info);
+                }
+                // 능력 사용 성공 시 버튼 비활성화
+                if (msg.status.name().equals("OK")) {
+                    nightAbilityUsed = true;
+                    updateAbilityAvailability();
                 }
             });
         });
@@ -216,11 +231,9 @@ public class GameScreen {
         }
 
         // 플레이어 목록 요청 (전체 플레이어 + 생존 상태)
-        // callback을 저장해두고, PLAYERS_LIST 응답 시 사용
         pendingPlayerSelectionCallback = (selectedPlayer) -> {
             if (selectedPlayer != null && !selectedPlayer.isEmpty()) {
                 ServerConnection.send("USE_ABILITY", Map.of("target", selectedPlayer));
-                appendLog("🛠 능력을 사용합니다. 대상: " + selectedPlayer);
             }
         };
         ServerConnection.send("GET_PLAYERS", Map.of());
@@ -316,7 +329,8 @@ public class GameScreen {
 
         boolean canUse = "NIGHT".equalsIgnoreCase(state)
                 && myRole != null
-                && !"CITIZEN".equalsIgnoreCase(myRole);
+                && !"CITIZEN".equalsIgnoreCase(myRole)
+                && !nightAbilityUsed;
 
         abilityButton.setEnabled(canUse);
         if (myRole == null) {
@@ -324,7 +338,11 @@ public class GameScreen {
         } else if ("CITIZEN".equalsIgnoreCase(myRole)) {
             abilityButton.setText("능력 없음");
         } else {
-            abilityButton.setText(canUse ? ("능력 사용 (" + myRole + ")") : ("능력 대기 (" + myRole + ")"));
+            if (nightAbilityUsed) {
+                abilityButton.setText("능력 사용 완료 (" + myRole + ")");
+            } else {
+                abilityButton.setText(canUse ? ("능력 사용 (" + myRole + ")") : ("능력 대기 (" + myRole + ")"));
+            }
         }
     }
 }

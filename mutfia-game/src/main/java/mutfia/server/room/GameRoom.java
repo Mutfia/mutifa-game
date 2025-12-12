@@ -20,6 +20,10 @@ public class GameRoom {
 
     private Map<Player, Role> roles = new HashMap<>();
     private Map<Player, Boolean> aliveStates = new HashMap<>();
+    
+    // 밤 능력 사용 관련
+    private Map<Player, Boolean> nightAbilityUsed = new HashMap<>(); // 밤에 능력을 사용했는지
+    private Map<Player, Player> nightTargets = new HashMap<>(); // 밤에 선택한 대상 저장
 
     private GameRoom(Long id, String roomName, Player creator) {
         this.id = id;
@@ -131,5 +135,40 @@ public class GameRoom {
 
     public void setPhase(Phase phase) {
         this.phase = phase;
+    }
+
+    // 밤 능력 사용 관련 메서드
+    public boolean hasUsedNightAbility(Player player) {
+        return nightAbilityUsed.getOrDefault(player, false);
+    }
+
+    public void setNightAbilityUsed(Player player, boolean used) { // 능력 사용 여부 저장
+        nightAbilityUsed.put(player, used);
+    }
+
+    public void setNightTarget(Player player, Player target) { // 대상 지정 저장
+        nightTargets.put(player, target);
+    }
+
+    public Player getMafiaTarget() {
+        return players.stream()
+                .filter(p -> roles.get(p) == Role.MAFIA)
+                .findFirst()
+                .map(nightTargets::get)
+                .orElse(null);
+    }
+
+    public Player getDoctorTarget() {
+        return players.stream()
+                .filter(p -> roles.get(p) == Role.DOCTOR)
+                .findFirst()
+                .map(nightTargets::get)
+                .orElse(null);
+    }
+
+    // 밤 능력 사용 상태 초기화 (밤 시작/종료 시 사용)
+    public void resetNightActions() {
+        nightAbilityUsed.clear();
+        nightTargets.clear();
     }
 }
