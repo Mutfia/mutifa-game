@@ -4,7 +4,9 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import mutfia.server.player.Player;
+import mutfia.server.player.enums.Role;
 import mutfia.server.room.enums.Phase;
 
 public class GameRoom {
@@ -16,7 +18,8 @@ public class GameRoom {
     private int maxPlayersCount;
     private Phase phase = Phase.DAY;
 
-    private Map<Player, String> roles = new HashMap<>();
+    private Map<Player, Role> roles = new HashMap<>();
+    private Map<Player, Boolean> aliveStates = new HashMap<>();
 
     private GameRoom(Long id, String roomName, Player creator) {
         this.id = id;
@@ -43,6 +46,7 @@ public class GameRoom {
 
     public synchronized void removePlayer(Player player) {
         this.players.remove(player);
+        aliveStates.remove(player);
     }
 
     public boolean isEmpty() {
@@ -79,16 +83,46 @@ public class GameRoom {
         isPlaying = playing;
     }
 
-    public void setRoles(Map<Player, String> roles) {
+    public void setRoles(Map<Player, Role> roles) {
         this.roles = roles;
     }
 
-    public String getRole(Player player) {
+    public Role getRole(Player player) {
         return roles.get(player);
     }
 
-    public Map<Player, String> getRoles() {
+    public Map<Player, Role> getRoles() {
         return roles;
+    }
+
+    public void initializeAliveStates() {
+        for (Player player : players) {
+            aliveStates.put(player, true);
+        }
+    }
+
+    public boolean isAlive(Player player) {
+        return aliveStates.getOrDefault(player, true);
+    }
+
+    public void markDead(Player player) {
+        aliveStates.put(player, false);
+    }
+
+    public void heal(Player player) {
+        aliveStates.put(player, true);
+    }
+
+    public List<Player> getAlivePlayers() {
+        return players.stream()
+                .filter(this::isAlive)
+                .toList();
+    }
+
+    public Optional<Player> findPlayerByName(String name) {
+        return players.stream()
+                .filter(p -> p.getName().equals(name))
+                .findFirst();
     }
 
     public Phase getPhase() {

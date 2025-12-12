@@ -8,6 +8,10 @@ import java.util.Map;
 
 import mutfia.global.response.CustomProtocolMessage;
 import mutfia.server.player.Player;
+import mutfia.server.player.enums.Role;
+import mutfia.server.role.RoleAction;
+import mutfia.server.role.RoleActionFactory;
+import mutfia.server.role.RoleActionResult;
 import mutfia.server.room.GameRoom;
 import mutfia.server.room.RoomManager;
 import mutfia.server.room.enums.Phase;
@@ -142,20 +146,21 @@ public class Handlers {
         List<Player> players = new ArrayList<>(room.getPlayers());
         Collections.shuffle(players);
 
-        Map<Player, String> roles = new HashMap<>();
+        Map<Player, Role> roles = new HashMap<>();
 
-        roles.put(players.get(0), "MAFIA");
-        roles.put(players.get(1), "DOCTOR");
-        roles.put(players.get(2), "POLICE");
-        roles.put(players.get(3), "CITIZEN");
-        roles.put(players.get(4), "CITIZEN");
+        roles.put(players.get(0), Role.MAFIA);
+        roles.put(players.get(1), Role.DOCTOR);
+        roles.put(players.get(2), Role.POLICE);
+        roles.put(players.get(3), Role.CITIZEN);
+        roles.put(players.get(4), Role.CITIZEN);
 
         room.setRoles(roles);
+        room.initializeAliveStates();
 
         for (Player p : players) {
             p.send(CustomProtocolMessage.success(
                     "ROLE_ASSIGN",
-                    Map.of("role", roles.get(p))
+                    Map.of("role", roles.get(p).name())
             ));
         }
 
@@ -202,5 +207,67 @@ public class Handlers {
                 startDay(room);
             } catch (Exception ignored) {}
         }).start();
+    }
+
+    // 직업 능력 사용
+    public static void handleUseAbility(Player player, CustomProtocolMessage msg) {
+        GameRoom room = player.getCurrentGameRoom();
+        if (room == null) {
+            player.send(CustomProtocolMessage.error(
+                    "USE_ABILITY",
+                    Map.of("message", "방 안에 있어야 능력을 사용할 수 있습니다.")
+            ));
+            return;
+        }
+
+        if (!room.isAlive(player)) {
+            player.send(CustomProtocolMessage.error(
+                    "USE_ABILITY",
+                    Map.of("message", "사망한 플레이어는 행동할 수 없습니다.")
+            ));
+            return;
+        }
+
+        if (room.getPhase() != Phase.NIGHT) {
+            player.send(CustomProtocolMessage.error(
+                    "USE_ABILITY",
+                    Map.of("message", "능력은 밤에만 사용할 수 있습니다.")
+            ));
+            return;
+        }
+
+        String targetName = (String) msg.data.get("target");
+        if (targetName == null || targetName.isBlank()) {
+            player.send(CustomProtocolMessage.error(
+                    "USE_ABILITY",
+                    Map.of("message", "대상을 지정해야 합니다.")
+            ));
+            return;
+        }
+
+        Player target = room.findPlayerByName(targetName).orElse(null);
+        if (target == null) {
+            player.send(CustomProtocolMessage.error(
+                    "USE_ABILITY",
+                    Map.of("message", "대상을 찾을 수 없습니다.")
+            ));
+            return;
+        }
+
+        Role role = room.getRole(player);
+        RoleAction action = RoleActionFactory.from(role);
+        RoleActionResult result = action.use(player, target, room);
+
+        if (result.success()) {
+            player.send(CustomProtocolMessage.success(
+                    "USE_ABILITY",
+                    Map.of("message", result.message())
+            ));
+        } else {
+            player.send(CustomProtocolMessage.error(
+                    "USE_ABILITY",
+                    Map.of("message", result.message())
+            ));
+        }
     }
 }
