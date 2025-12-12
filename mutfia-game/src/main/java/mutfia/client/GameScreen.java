@@ -1,9 +1,12 @@
 package mutfia.client;
 
+import java.util.*;
 import java.util.HashMap;
 import javax.swing.*;
 import java.awt.*;
+import java.util.List;
 import java.util.Map;
+import java.util.function.*;
 import mutfia.client.handler.ClientMessageHandler;
 import mutfia.server.player.Player;
 
@@ -19,6 +22,8 @@ public class GameScreen {
     private Map<Player, String> roles = new HashMap<>();
     private String state = "DAY"; // or "NIGHT"
     private String myRole;
+    private List<Map<String, Object>> playersInfo = new ArrayList<>();
+    private Consumer<String> pendingPlayerSelectionCallback; // 플레이어 선택 대기 중인 callback
 
     public GameScreen(Map<String, Object> roomInfo) {
         registerHandlers();
@@ -155,7 +160,6 @@ public class GameScreen {
             });
         });
 
-        // 타이머 업데이트
         ClientMessageHandler.register("TIMER_UPDATE", msg -> {
             SwingUtilities.invokeLater(() -> {
                 int remainingSeconds = ((Number) msg.data.get("remainingSeconds")).intValue();
@@ -184,6 +188,21 @@ public class GameScreen {
                 }
             });
         });
+
+        ClientMessageHandler.register("PLAYERS_LIST", msg -> {
+            SwingUtilities.invokeLater(() -> {
+                @SuppressWarnings("unchecked")
+                List<Map<String, Object>> players = (List<Map<String, Object>>) msg.data.get("players");
+                playersInfo = players != null ? new ArrayList<>(players) : new ArrayList<>();
+                
+                // 대기 중인 callback이 있으면 선택 UI 표시
+                if (pendingPlayerSelectionCallback != null) {
+                    Consumer<String> callback = pendingPlayerSelectionCallback;
+                    pendingPlayerSelectionCallback = null; // 사용 후 초기화
+                    selectPlayerFromList("플레이어 선택", "대상 플레이어를 선택하세요", callback);
+                }
+            });
+        });
     }
 
     private void promptAbilityTarget() {
@@ -196,17 +215,100 @@ public class GameScreen {
             return;
         }
 
-        String target = JOptionPane.showInputDialog(frame, "대상 플레이어 이름을 입력하세요", "능력 사용", JOptionPane.QUESTION_MESSAGE);
-        if (target == null) return; // 취소
+        // 플레이어 목록 요청 (전체 플레이어 + 생존 상태)
+        // callback을 저장해두고, PLAYERS_LIST 응답 시 사용
+        pendingPlayerSelectionCallback = (selectedPlayer) -> {
+            if (selectedPlayer != null && !selectedPlayer.isEmpty()) {
+                ServerConnection.send("USE_ABILITY", Map.of("target", selectedPlayer));
+                appendLog("🛠 능력을 사용합니다. 대상: " + selectedPlayer);
+            }
+        };
+        ServerConnection.send("GET_PLAYERS", Map.of());
+    }
 
-        String trimmed = target.trim();
-        if (trimmed.isEmpty()) {
-            appendLog("⚠️ 대상을 입력해야 합니다.");
+    private void selectPlayerFromList(String title, String message, Consumer<String> callback) {
+        if (playersInfo.isEmpty()) {
+            appendLog("⚠️ 선택할 수 있는 플레이어가 없습니다.");
             return;
         }
 
-        ServerConnection.send("USE_ABILITY", Map.of("target", trimmed));
-        appendLog("🛠 능력을 사용합니다. 대상: " + trimmed);
+        // 커스텀 다이얼로그 생성 (죽은 플레이어는 회색으로 표시)
+        JDialog dialog = new JDialog(frame, title, true);
+        dialog.setLayout(new BorderLayout());
+        
+        JPanel panel = new JPanel();
+        panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
+        panel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+        
+        JLabel label = new JLabel(message);
+        label.setBorder(BorderFactory.createEmptyBorder(0, 0, 10, 0));
+        panel.add(label);
+        
+        ButtonGroup group = new ButtonGroup();
+        JRadioButton[] buttons = new JRadioButton[playersInfo.size()];
+        String[] playerNames = new String[playersInfo.size()];
+        
+        for (int i = 0; i < playersInfo.size(); i++) {
+            Map<String, Object> playerInfo = playersInfo.get(i);
+            String name = (String) playerInfo.get("name");
+            Boolean alive = (Boolean) playerInfo.get("alive");
+            Boolean isMe = (Boolean) playerInfo.get("isMe");
+            
+            playerNames[i] = name;
+            buttons[i] = new JRadioButton(name);
+            
+            if (!alive) {
+                // 죽은 플레이어는 회색으로 표시하고 비활성화
+                buttons[i].setForeground(Color.GRAY);
+                buttons[i].setEnabled(false);
+            } else if (isMe != null && isMe) {
+                // 자기 자신은 노란색으로 표시
+                buttons[i].setForeground(new Color(255, 200, 0)); // 노란색
+            } else {
+                // 생존 플레이어는 기본 색상
+                buttons[i].setForeground(Color.BLACK);
+            }
+            
+            group.add(buttons[i]);
+            panel.add(buttons[i]);
+        }
+        
+        // 첫 번째 생존 플레이어 선택
+        for (JRadioButton button : buttons) {
+            if (button.isEnabled()) {
+                button.setSelected(true);
+                break;
+            }
+        }
+        
+        JButton okButton = new JButton("확인");
+        JButton cancelButton = new JButton("취소");
+        
+        okButton.addActionListener(e -> {
+            for (int i = 0; i < buttons.length; i++) {
+                if (buttons[i].isSelected() && buttons[i].isEnabled()) {
+                    dialog.dispose();
+                    if (callback != null) {
+                        callback.accept(playerNames[i]);
+                    }
+                    return;
+                }
+            }
+        });
+        
+        cancelButton.addActionListener(e -> {
+            dialog.dispose();
+        });
+        
+        JPanel buttonPanel = new JPanel(new FlowLayout());
+        buttonPanel.add(okButton);
+        buttonPanel.add(cancelButton);
+        
+        dialog.add(panel, BorderLayout.CENTER);
+        dialog.add(buttonPanel, BorderLayout.SOUTH);
+        dialog.pack();
+        dialog.setLocationRelativeTo(frame);
+        dialog.setVisible(true);
     }
 
     private void updateAbilityAvailability() {

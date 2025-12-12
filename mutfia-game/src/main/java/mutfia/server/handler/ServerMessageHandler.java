@@ -16,6 +16,7 @@ public class ServerMessageHandler {
         handlers.put("JOIN_ROOM", Handlers::handleJoinRoom);
         handlers.put("CHAT", Handlers::handleChat);
         handlers.put("USE_ABILITY", Handlers::handleUseAbility);
+        handlers.put("GET_PLAYERS", Handlers::handleGetPlayers);
     }
 
     public static void dispatch(Player player, CustomProtocolMessage msg){

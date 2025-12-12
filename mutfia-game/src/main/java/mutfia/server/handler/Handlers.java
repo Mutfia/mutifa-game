@@ -296,4 +296,30 @@ public class Handlers {
             ));
         }
     }
+
+    // 플레이어 목록 조회 (전체 플레이어 + 생존 상태)
+    public static void handleGetPlayers(Player player, CustomProtocolMessage msg) {
+        GameRoom room = player.getCurrentGameRoom();
+        if (room == null) {
+            player.send(CustomProtocolMessage.error(
+                    "GET_PLAYERS",
+                    Map.of("message", "방 안에 있어야 합니다.")
+            ));
+            return;
+        }
+
+        List<Map<String, Object>> playersInfo = new ArrayList<>();
+        for (Player p : room.getPlayers()) {
+            Map<String, Object> playerInfo = new HashMap<>();
+            playerInfo.put("name", p.getName());
+            playerInfo.put("alive", room.isAlive(p));
+            playerInfo.put("isMe", p.getName().equals(player.getName())); // 자기 자신 여부
+            playersInfo.add(playerInfo);
+        }
+
+        player.send(CustomProtocolMessage.success(
+                "PLAYERS_LIST",
+                Map.of("players", playersInfo)
+        ));
+    }
 }
