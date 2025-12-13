@@ -17,6 +17,7 @@ public class GameRoom {
     private List<Player> players;
     private int maxPlayersCount;
     private Phase phase = Phase.DAY;
+    private int remainingSeconds;
 
     private Map<Player, Role> roles = new HashMap<>();
     private Map<Player, Boolean> aliveStates = new HashMap<>();
@@ -138,6 +139,18 @@ public class GameRoom {
 
     public void setPhase(Phase phase) {
         this.phase = phase;
+    }
+
+    public synchronized int getRemainingSeconds() {
+        return remainingSeconds;
+    }
+
+    public synchronized void setRemainingSeconds(int seconds) {
+        this.remainingSeconds = Math.max(seconds, 0);
+    }
+
+    public synchronized void reduceRemainingSeconds(int delta) {
+        this.remainingSeconds = Math.max(remainingSeconds - delta, 0);
     }
 
     // 밤 능력 사용 관련 메서드

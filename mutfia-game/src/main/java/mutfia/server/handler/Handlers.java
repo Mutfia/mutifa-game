@@ -129,6 +129,14 @@ public class Handlers {
         GameRoom room = player.getCurrentGameRoom();
         if (room == null) return;
 
+        if (!room.isAlive(player)) {
+            player.send(CustomProtocolMessage.error(
+                    "CHAT",
+                    Map.of("message", "사망한 상태에서는 채팅을 입력할 수 없습니다.")
+            ));
+            return;
+        }
+
         String message = (String) msg.data.get("message");
 
         ServerBroadcaster.broadcastToRoom(
@@ -195,16 +203,16 @@ public class Handlers {
 
         // 타이머 스레드 시작
         new Thread(() -> {
-            int remainingSeconds = DAY_TIMER / 1000;
+            room.setRemainingSeconds(DAY_TIMER / 1000);
             try {
-                while (remainingSeconds > 0) {
+                while (room.getRemainingSeconds() > 0) {
                     Thread.sleep(1000); // 1초 대기
-                    remainingSeconds--;
-                    
+                    room.reduceRemainingSeconds(1);
+
                     ServerBroadcaster.broadcastToRoom(
                             room,
                             CustomProtocolMessage.success("TIMER_UPDATE",
-                                    Map.of("remainingSeconds", remainingSeconds, "phase", "DAY")
+                                    Map.of("remainingSeconds", room.getRemainingSeconds(), "phase", "DAY")
                             )
                     );
                 }
@@ -257,16 +265,16 @@ public class Handlers {
 
         // 투표 시간 타이머 스레드 시작
         new Thread(() -> {
-            int remainingSeconds = VOTING_TIMER / 1000;
+            room.setRemainingSeconds(VOTING_TIMER / 1000);
             try {
-                while (remainingSeconds > 0) {
+                while (room.getRemainingSeconds() > 0) {
                     Thread.sleep(1000); // 1초 대기
-                    remainingSeconds--;
-                    
+                    room.reduceRemainingSeconds(1);
+
                     ServerBroadcaster.broadcastToRoom(
                             room,
                             CustomProtocolMessage.success("TIMER_UPDATE",
-                                    Map.of("remainingSeconds", remainingSeconds, "phase", "VOTING")
+                                    Map.of("remainingSeconds", room.getRemainingSeconds(), "phase", "VOTING")
                             )
                     );
                 }
@@ -318,7 +326,8 @@ public class Handlers {
         room.setPlaying(false);
 
         // 각 플레이어의 역할에 따라 승리/패배 결정
-        for (Player player : room.getPlayers()) {
+        List<Player> players = new ArrayList<>(room.getPlayers());
+        for (Player player : players) {
             Role role = room.getRole(player);
             boolean isWinner = false;
 
@@ -335,6 +344,16 @@ public class Handlers {
 
             player.send(CustomProtocolMessage.success("GAME_END", resultData));
         }
+
+        closeRoom(room, players);
+    }
+
+    private static void closeRoom(GameRoom room, List<Player> players) {
+        for (Player player : players) {
+            room.removePlayer(player);
+            player.setCurrentGameRoom(null);
+        }
+        RoomManager.removeRoom(room);
     }
 
     private static void startNight(GameRoom room) {
@@ -350,16 +369,16 @@ public class Handlers {
 
         // 타이머 스레드 시작
         new Thread(() -> {
-            int remainingSeconds = NIGHT_TIMER / 1000;
+            room.setRemainingSeconds(NIGHT_TIMER / 1000);
             try {
-                while (remainingSeconds > 0) {
+                while (room.getRemainingSeconds() > 0) {
                     Thread.sleep(1000); // 1초 대기
-                    remainingSeconds--;
-                    
+                    room.reduceRemainingSeconds(1);
+
                     ServerBroadcaster.broadcastToRoom(
                             room,
                             CustomProtocolMessage.success("TIMER_UPDATE",
-                                    Map.of("remainingSeconds", remainingSeconds, "phase", "NIGHT")
+                                    Map.of("remainingSeconds", room.getRemainingSeconds(), "phase", "NIGHT")
                             )
                     );
                 }
@@ -551,5 +570,28 @@ public class Handlers {
         }
 
         player.send(CustomProtocolMessage.success("VOTE", Map.of("message", result.message())));
+    }
+
+    // 타이머 단축 요청
+    public static void handleShortenTimer(Player player, CustomProtocolMessage msg) {
+        GameRoom room = player.getCurrentGameRoom();
+        if (room == null) {
+            return;
+        }
+        int before = room.getRemainingSeconds();
+        if (before <= 0) {
+            return;
+        }
+
+        room.reduceRemainingSeconds(5); // 5초 단축
+        int updated = room.getRemainingSeconds();
+
+        ServerBroadcaster.broadcastToRoom(
+                room,
+                CustomProtocolMessage.success(
+                        "TIMER_UPDATE",
+                        Map.of("remainingSeconds", updated, "phase", room.getPhase().name())
+                )
+        );
     }
 }

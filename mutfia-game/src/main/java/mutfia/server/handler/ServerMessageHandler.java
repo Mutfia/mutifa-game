@@ -18,6 +18,7 @@ public class ServerMessageHandler {
         handlers.put("USE_ABILITY", Handlers::handleUseAbility);
         handlers.put("GET_PLAYERS", Handlers::handleGetPlayers);
         handlers.put("VOTE", Handlers::handleVote);
+        handlers.put("SHORTEN_TIMER", Handlers::handleShortenTimer);
     }
 
     public static void dispatch(Player player, CustomProtocolMessage msg){
