@@ -9,7 +9,7 @@ import mutfia.client.handler.ClientMessageHandler;
 public class StartScreen {
     private static final String BACKGROUND_IMAGE_PATH = "/images/night.png";
     private static final int WIDTH = 520;
-    private static final int HEIGHT = 900;
+    private static final int HEIGHT = 700;
 
     private JFrame mainFrame;
     private Image backgroundImage;
